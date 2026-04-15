@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from pathlib import Path
+import textwrap
 from typing import Iterable
 
 import numpy as np
@@ -167,21 +168,22 @@ def render_block_title(text: str) -> None:
 
 
 def render_insight_cards(min_height_px: int = 340) -> None:
-    html = """
+    html = textwrap.dedent(
+        """
     <style>
     .insights-wrap {{
-        display: grid;
-        grid-template-rows: repeat(4, minmax(0, 1fr));
-        gap: 6px;
-        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 14px;
         min-height: {min_height_px}px;
     }}
     .insight-card {{
         display: grid;
         grid-template-columns: 30px 1fr;
-        gap: 10px;
+        gap: 8px;
         align-items: start;
-        padding: 7px 0;
+        padding: 0;
         border-radius: 10px;
         border: none;
         background: transparent;
@@ -214,38 +216,39 @@ def render_insight_cards(min_height_px: int = 340) -> None:
         color: #334155;
     }}
     </style>
-    <div class="insights-wrap">
-        <div class="insight-card">
-            <div class="insight-icon icon-green">↗</div>
-            <div>
-                <p class="insight-title">Сезонность</p>
-                <p class="insight-text">Пик бизнеса приходится на июль-август, снижение - на январь-февраль.</p>
+        <div class="insights-wrap">
+            <div class="insight-card">
+                <div class="insight-icon icon-green">↗</div>
+                <div>
+                    <p class="insight-title">Сезонность</p>
+                    <p class="insight-text">Пик продаж приходится на июль-август, минимальные значения - январь-февраль.</p>
+                </div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-icon icon-blue">II</div>
+                <div>
+                    <p class="insight-title">Динамика по годам</p>
+                    <p class="insight-text">2025 год демонстрирует рост к 2024 (+33.2%). В 2026 наблюдается замедление: отставание от темпа 2025 составляет -23.7%.</p>
+                </div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-icon icon-orange">!</div>
+                <div>
+                    <p class="insight-title">Зона роста</p>
+                    <p class="insight-text">Ключевая просадка вне сезона связана со снижением эффективности точки (Объём/AKB), особенно в регионах 2-3.</p>
+                </div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-icon icon-amber">◎</div>
+                <div>
+                    <p class="insight-title">Фокус действий</p>
+                    <p class="insight-text">Рост требует смещения фокуса на допиковый период (май-июнь): усиление дистрибуции (АКБ), обеспечение наличия на полке, стимулирование повторных покупок.</p>
+                </div>
             </div>
         </div>
-        <div class="insight-card">
-            <div class="insight-icon icon-blue">II</div>
-            <div>
-                <p class="insight-title">Динамика по годам</p>
-                <p class="insight-text">2025 год превосходит 2024 по общему объёму на +33.2%; темп 2026 года (YTD) отстаёт от 2025 на 23.7%.</p>
-            </div>
-        </div>
-        <div class="insight-card">
-            <div class="insight-icon icon-orange">!</div>
-            <div>
-                <p class="insight-title">Зона роста</p>
-                <p class="insight-text">Восстановление АКБ и конверсии в Регионах 2-3 вне пикового сезона.</p>
-            </div>
-        </div>
-        <div class="insight-card">
-            <div class="insight-icon icon-amber">◎</div>
-            <div>
-                <p class="insight-title">Фокус действий</p>
-                <p class="insight-text">Следует сфокусироваться на "предсезонная активации" в мае-июне с опорой на лидера Регион1 (доля 45.3%). Контрольный ориентир: пиковый месяц - июл 2025 (2 638 199 л).</p>
-            </div>
-        </div>
-    </div>
-    """.format(min_height_px=min_height_px)
-    st.markdown(html, unsafe_allow_html=True)
+    """
+    ).format(min_height_px=min_height_px)
+    st.html(html, width="stretch")
 
 
 def aggregate_period_metrics(wide_period: pd.DataFrame, regions: list[str]) -> dict:
@@ -459,9 +462,10 @@ def main() -> None:
         st.plotly_chart(fig_main, use_container_width=True)
 
     equal_block_height = 520
+    lower_block_height = 410
     region_plot_height = 390
     eff_plot_height = 460
-    heat_plot_height = 330
+    heat_plot_height = 285
     lower_grid_gap_px = 16
 
     left, right = st.columns(2, gap="medium")
@@ -558,7 +562,7 @@ def main() -> None:
     heat_cols, insight_cols = st.columns(2, gap="medium")
 
     with heat_cols:
-        with st.container(border=True, height=equal_block_height):
+        with st.container(border=True, height=lower_block_height):
             title_col, metric_col = st.columns([1.1, 1.2], gap="small", vertical_alignment="center")
             with title_col:
                 render_block_title("Тепловая карта")
@@ -624,15 +628,15 @@ def main() -> None:
                     len=0.78,
                 ),
             )
-            heat_vertical_offset = max(0, int((equal_block_height - heat_plot_height - 120) / 2))
+            heat_vertical_offset = max(0, int((lower_block_height - heat_plot_height - 120) / 2))
             add_vertical_space(heat_vertical_offset)
             st.plotly_chart(fig_heat, use_container_width=True)
 
     with insight_cols:
-        with st.container(border=True, height=equal_block_height):
+        with st.container(border=True, height=lower_block_height):
             add_vertical_space(4)
             render_block_title("Ключевые выводы")
-            render_insight_cards(min_height_px=max(260, equal_block_height - 120))
+            render_insight_cards(min_height_px=max(200, lower_block_height - 150))
 
 if __name__ == "__main__":
     main()
