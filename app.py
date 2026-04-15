@@ -513,7 +513,7 @@ def main() -> None:
                     format_func=lambda x: {
                         "volume_sum": "Объем",
                         "akb_avg": "АКБ",
-                        "lakb": "Объём/АКБ",
+                        "lakb": "Объем/АКБ",
                     }[x],
                     label_visibility="collapsed",
                     width="stretch",
@@ -574,7 +574,7 @@ def main() -> None:
                     format_func=lambda x: {
                         "volume": "Объем",
                         "akb": "АКБ",
-                        "lakb": "Объём/АКБ",
+                        "lakb": "Объем/АКБ",
                     }[x],
                     label_visibility="collapsed",
                     width="stretch",
@@ -622,7 +622,7 @@ def main() -> None:
                     title=(
                         "Объем, л"
                         if heat_metric == "volume"
-                        else ("АКБ" if heat_metric == "akb" else "L/АКБ")
+                        else ("АКБ" if heat_metric == "akb" else "Объем/АКБ")
                     ),
                     thickness=14,
                     len=0.78,
