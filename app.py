@@ -61,15 +61,10 @@ def month_label(value: pd.Timestamp) -> str:
     return f"{MONTHS_RU[value.month - 1]} {value.year}"
 
 
-def pct_change_last_3(series: pd.Series) -> float:
-    if len(series) < 6:
+def pct_change(current: float, previous: float) -> float:
+    if np.isnan(current) or np.isnan(previous) or previous == 0:
         return float("nan")
-
-    recent = float(series.iloc[-3:].sum())
-    previous = float(series.iloc[-6:-3].sum())
-    if previous == 0:
-        return float("nan")
-    return (recent - previous) / previous * 100
+    return (current - previous) / previous * 100
 
 
 def format_delta(value: float, suffix: str = "%") -> str | None:
@@ -81,6 +76,65 @@ def format_delta(value: float, suffix: str = "%") -> str | None:
 
 def fmt_int(value: float) -> str:
     return f"{value:,.0f}".replace(",", " ")
+
+
+def aggregate_period_metrics(wide_period: pd.DataFrame, regions: list[str]) -> dict:
+    long_period = build_long_data(wide_period, regions)
+    monthly_period = (
+        long_period.groupby("date", as_index=False)
+        .agg(volume=("volume", "sum"), akb=("akb", "sum"))
+        .sort_values("date")
+    )
+    monthly_period["lakb"] = np.where(
+        monthly_period["akb"] > 0,
+        monthly_period["volume"] / monthly_period["akb"],
+        np.nan,
+    )
+
+    total_volume_period = float(monthly_period["volume"].sum())
+    total_akb_period = float(monthly_period["akb"].sum())
+    avg_akb_period = float(monthly_period["akb"].mean()) if not monthly_period.empty else float("nan")
+    avg_lakb_period = (
+        total_volume_period / total_akb_period if total_akb_period > 0 else float("nan")
+    )
+
+    return {
+        "long": long_period,
+        "monthly": monthly_period,
+        "total_volume": total_volume_period,
+        "total_akb": total_akb_period,
+        "avg_akb": avg_akb_period,
+        "avg_lakb": avg_lakb_period,
+    }
+
+
+def compute_comparison_metrics(
+    wide_df: pd.DataFrame, filtered_wide: pd.DataFrame, regions: list[str]
+) -> tuple[dict, dict | None, str]:
+    current_metrics = aggregate_period_metrics(filtered_wide, regions)
+    selected_indexes = filtered_wide.index.to_list()
+    period_len = len(selected_indexes)
+    current_start_idx = selected_indexes[0]
+
+    if current_start_idx - period_len >= 0:
+        prev_wide = wide_df.iloc[current_start_idx - period_len : current_start_idx].copy()
+        prev_metrics = aggregate_period_metrics(prev_wide, regions)
+        return current_metrics, prev_metrics, "к предыдущему периоду той же длины"
+
+    if period_len >= 2:
+        half = max(1, period_len // 2)
+        prev_wide = filtered_wide.iloc[:half].copy()
+        current_tail = filtered_wide.iloc[-half:].copy()
+        prev_metrics = aggregate_period_metrics(prev_wide, regions)
+        current_tail_metrics = aggregate_period_metrics(current_tail, regions)
+        return current_tail_metrics, prev_metrics, "вторая половина периода к первой"
+
+    if current_start_idx > 0:
+        prev_wide = wide_df.iloc[current_start_idx - 1 : current_start_idx].copy()
+        prev_metrics = aggregate_period_metrics(prev_wide, regions)
+        return current_metrics, prev_metrics, "к предыдущему месяцу"
+
+    return current_metrics, None, "база сравнения недоступна"
 
 
 def main() -> None:
@@ -142,36 +196,49 @@ def main() -> None:
         st.warning("В выбранном периоде нет данных.")
         st.stop()
 
-    long_df = build_long_data(filtered_wide, selected_regions)
-    monthly = (
-        long_df.groupby("date", as_index=False)
-        .agg(volume=("volume", "sum"), akb=("akb", "sum"))
-        .sort_values("date")
+    current_metrics = aggregate_period_metrics(filtered_wide, selected_regions)
+    long_df = current_metrics["long"]
+    monthly = current_metrics["monthly"]
+    total_volume = current_metrics["total_volume"]
+    total_akb = current_metrics["total_akb"]
+    avg_akb = current_metrics["avg_akb"]
+    avg_lakb = current_metrics["avg_lakb"]
+
+    comp_current_metrics, comp_prev_metrics, comparison_basis = compute_comparison_metrics(
+        wide_df, filtered_wide, selected_regions
     )
-    monthly["lakb"] = np.where(monthly["akb"] > 0, monthly["volume"] / monthly["akb"], np.nan)
-
-    total_volume = float(monthly["volume"].sum())
-    total_akb = float(monthly["akb"].sum())
-    avg_akb = float(monthly["akb"].mean())
-    avg_lakb = total_volume / total_akb if total_akb > 0 else float("nan")
-
-    volume_growth_3m = pct_change_last_3(monthly["volume"])
-    akb_growth_3m = pct_change_last_3(monthly["akb"])
-
-    if len(monthly) >= 6:
-        recent = monthly.iloc[-3:]
-        prev = monthly.iloc[-6:-3]
-        recent_lakb = recent["volume"].sum() / recent["akb"].sum()
-        prev_lakb = prev["volume"].sum() / prev["akb"].sum()
-        lakb_growth_3m = ((recent_lakb - prev_lakb) / prev_lakb * 100) if prev_lakb != 0 else float("nan")
+    if comp_prev_metrics is not None:
+        volume_delta = pct_change(comp_current_metrics["total_volume"], comp_prev_metrics["total_volume"])
+        akb_delta = pct_change(comp_current_metrics["avg_akb"], comp_prev_metrics["avg_akb"])
+        lakb_delta = pct_change(comp_current_metrics["avg_lakb"], comp_prev_metrics["avg_lakb"])
     else:
-        lakb_growth_3m = float("nan")
+        volume_delta = 0.0
+        akb_delta = 0.0
+        lakb_delta = 0.0
+
+    region_summary = (
+        long_df.groupby("region", as_index=False)
+        .agg(volume_sum=("volume", "sum"), akb_sum=("akb", "sum"), akb_avg=("akb", "mean"))
+        .sort_values("region")
+    )
+    region_summary["lakb"] = np.where(
+        region_summary["akb_sum"] > 0,
+        region_summary["volume_sum"] / region_summary["akb_sum"],
+        np.nan,
+    )
+    leader = region_summary.loc[region_summary["volume_sum"].idxmax()]
+    leader_share = leader["volume_sum"] / region_summary["volume_sum"].sum() * 100
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Общий объем", f"{fmt_int(total_volume)} л", delta=format_delta(volume_growth_3m))
-    c2.metric("Средний АКБ", fmt_int(avg_akb), delta=format_delta(akb_growth_3m))
-    c3.metric("Средний L/АКБ", f"{avg_lakb:.2f}", delta=format_delta(lakb_growth_3m))
-    c4.metric("Рост объема (3м к пред. 3м)", format_delta(volume_growth_3m) or "н/д")
+    c1.metric("Общий объем", f"{fmt_int(total_volume)} л", delta=format_delta(volume_delta))
+    c2.metric("Средний АКБ", fmt_int(avg_akb), delta=format_delta(akb_delta))
+    c3.metric("Средний L/АКБ", f"{avg_lakb:.2f}", delta=format_delta(lakb_delta))
+    c4.metric(
+        "Лидер по объему",
+        str(leader["region"]),
+        delta=f"{leader_share:.1f}% доля",
+    )
+    st.caption(f"Логика процента под KPI: {comparison_basis}.")
 
     fig_main = make_subplots(specs=[[{"secondary_y": True}]])
     fig_main.add_trace(
@@ -225,17 +292,6 @@ def main() -> None:
         )
         fig_eff.update_layout(title="Эффективность точки (L/АКБ)", margin=dict(l=10, r=10, t=45, b=10))
         st.plotly_chart(fig_eff, use_container_width=True)
-
-    region_summary = (
-        long_df.groupby("region", as_index=False)
-        .agg(volume_sum=("volume", "sum"), akb_sum=("akb", "sum"), akb_avg=("akb", "mean"))
-        .sort_values("region")
-    )
-    region_summary["lakb"] = np.where(
-        region_summary["akb_sum"] > 0,
-        region_summary["volume_sum"] / region_summary["akb_sum"],
-        np.nan,
-    )
 
     with right:
         comparison_metric = st.selectbox(
@@ -305,9 +361,6 @@ def main() -> None:
                 ytd_change = (curr_ytd - prev_ytd) / prev_ytd * 100
 
         peak_row = monthly.loc[monthly["volume"].idxmax()]
-        leader = region_summary.loc[region_summary["volume_sum"].idxmax()]
-        leader_share = leader["volume_sum"] / region_summary["volume_sum"].sum() * 100
-
         st.markdown(
             "\n".join(
                 [
