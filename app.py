@@ -462,10 +462,10 @@ def main() -> None:
         st.plotly_chart(fig_main, use_container_width=True)
 
     equal_block_height = 520
-    lower_block_height = 410
+    lower_block_height = 460
     region_plot_height = 390
     eff_plot_height = 460
-    heat_plot_height = 285
+    heat_plot_height = 390
     lower_grid_gap_px = 16
 
     left, right = st.columns(2, gap="medium")
@@ -559,7 +559,7 @@ def main() -> None:
             st.plotly_chart(fig_region, use_container_width=True)
 
     add_vertical_space(lower_grid_gap_px)
-    heat_cols, insight_cols = st.columns(2, gap="medium")
+    heat_cols, insight_cols = st.columns([1.5, 0.5], gap="medium")
 
     with heat_cols:
         with st.container(border=True, height=lower_block_height):
@@ -597,9 +597,9 @@ def main() -> None:
                 color_continuous_scale="RdYlGn",
             )
             fig_heat.update_traces(
-                xgap=5,
-                ygap=5,
-                textfont=dict(size=12, color="#0F172A"),
+                xgap=1,
+                ygap=1,
+                textfont=dict(size=11, color="#0F172A"),
                 hovertemplate=(
                     "Регион: %{y}<br>"
                     "Период: %{x}<br>"
@@ -611,10 +611,15 @@ def main() -> None:
                 tickangle=0,
                 showgrid=False,
                 title_text="Период",
+                tickfont=dict(size=11),
             )
-            fig_heat.update_yaxes(showgrid=False, title_text="Регион")
+            fig_heat.update_yaxes(
+                showgrid=False,
+                title_text=None,
+                tickfont=dict(size=11),
+            )
             fig_heat.update_layout(
-                margin=dict(l=10, r=10, t=10, b=10),
+                margin=dict(l=2, r=2, t=4, b=4),
                 height=heat_plot_height,
                 plot_bgcolor="#F8FAFC",
                 paper_bgcolor="#FFFFFF",
@@ -624,12 +629,12 @@ def main() -> None:
                         if heat_metric == "volume"
                         else ("АКБ" if heat_metric == "akb" else "Объем/АКБ")
                     ),
-                    thickness=14,
-                    len=0.78,
+                    thickness=8,
+                    len=0.92,
+                    x=1.0,
+                    tickfont=dict(size=10),
                 ),
             )
-            heat_vertical_offset = max(0, int((lower_block_height - heat_plot_height - 120) / 2))
-            add_vertical_space(heat_vertical_offset)
             st.plotly_chart(fig_heat, use_container_width=True)
 
     with insight_cols:
