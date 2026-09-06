@@ -1,21 +1,20 @@
-﻿# Streamlit Dashboard
+﻿# Дашборд представленности торговых точек
 
-This folder contains an independent Streamlit version of the dashboard.
-The original React/Vite version remains in `../Дашборд`.
+Streamlit-дашборд по региональной представленности: активные точки (АКБ), объём продаж в литрах и эффективность точки (л/АКБ). Данные читаются из Excel-выгрузки коммерческой отчётности.
 
-## Run locally
+Интерфейс: KPI с сравнением периодов, динамика объёма и АКБ, тепловая карта, сравнение регионов, блок выводов.
+
+Стек: Python, Streamlit, pandas, Plotly.
+
+## Запуск
 
 ```bash
-cd streamlit_dashboard
 python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Data source
+## Данные
 
-Default file path used by the app:
+Файл по умолчанию: `data/dashboard_data.xlsx`.
 
-- `data/dashboard_data.xlsx`
-
-You can replace this file with a newer Excel export that keeps the same structure.
-You can also upload an `.xlsx` directly from the sidebar while the app is running.
+Ожидаемая структура: дата, АКБ по регионам, объём (литры) по тем же регионам. Файл можно заменить на месте или загрузить `.xlsx` из сайдбара.
